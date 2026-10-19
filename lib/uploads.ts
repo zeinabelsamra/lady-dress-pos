@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -28,6 +28,13 @@ export async function saveImage(file: File): Promise<string> {
   await mkdir(UPLOAD_DIR, { recursive: true });
   await writeFile(path.join(UPLOAD_DIR, name), Buffer.from(await file.arrayBuffer()));
   return `/uploads/${name}`;
+}
+
+/** Removes an uploaded photo (ignores web links and already-missing files). */
+export async function deleteImage(url: string) {
+  const name = url.startsWith("/uploads/") ? url.slice("/uploads/".length) : null;
+  if (!name || !/^[a-zA-Z0-9-]+\.[a-z]+$/.test(name)) return;
+  await unlink(path.join(UPLOAD_DIR, name)).catch(() => {});
 }
 
 /**

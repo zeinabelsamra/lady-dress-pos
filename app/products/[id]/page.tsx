@@ -4,6 +4,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { requireAdmin } from "../../../lib/auth";
+import DeleteProductButton from "./DeleteProductButton";
 
 type Params = Promise<{ id: string }>;
 
@@ -155,6 +156,7 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
                   >
                     Edit
                   </Link>
+                  <DeleteProductButton productId={product.id} name={product.name} />
                   <span
                     className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                       product.isActive

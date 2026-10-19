@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from "../../lib/prisma";
-import { saveImage } from "../../lib/uploads";
+import { deleteImage, saveImage } from "../../lib/uploads";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "../../lib/auth";
 
@@ -125,6 +125,41 @@ export async function createItem(formData: FormData): Promise<ActionResult> {
   revalidatePath("/inventory");
   revalidatePath("/checkout");
   return null;
+}
+
+// Deletes a product with its variants and stock history. A product that has
+// been sold is hidden instead, so past sales and revenue stay correct.
+export async function deleteProduct(
+  productId: number
+): Promise<{ error: string } | { hidden: boolean }> {
+  await requireAdmin();
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { imageUrl: true, variants: { select: { id: true, _count: { select: { saleItems: true } } } } },
+  });
+  if (!product) return { error: "Product not found." };
+
+  const hasSales = product.variants.some((v) => v._count.saleItems > 0);
+  try {
+    if (hasSales) {
+      await prisma.product.update({ where: { id: productId }, data: { isActive: false } });
+    } else {
+      await prisma.$transaction([
+        prisma.stockMovement.deleteMany({
+          where: { variantId: { in: product.variants.map((v) => v.id) } },
+        }),
+        prisma.product.delete({ where: { id: productId } }), // variants cascade
+      ]);
+      if (product.imageUrl) await deleteImage(product.imageUrl);
+    }
+  } catch {
+    return { error: "Failed to delete product. Please try again." };
+  }
+
+  revalidatePath("/products");
+  revalidatePath("/inventory");
+  revalidatePath("/checkout");
+  return { hidden: hasSales };
 }
 
 // Upload a product photo from the new/edit product forms; returns its URL.

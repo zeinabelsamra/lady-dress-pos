@@ -17,6 +17,7 @@ export default async function CheckoutPage({
   const initialVariantId = variant ? parseInt(variant) : null;
 
   const variants = await prisma.variant.findMany({
+    where: { product: { isActive: true } },
     orderBy: { sku: "asc" },
     select: {
       id: true,
